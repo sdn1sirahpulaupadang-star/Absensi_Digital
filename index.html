@@ -1,244 +1,10 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Presensi Barcode & ID Card Kelas 5.B - SDN 1 Sirah Pulau Padang</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <!-- HTML5 QR Code Library -->
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <style>
-    .status-btn.active-H { background-color: #10B981; color: white; border-color: #059669; }
-    .status-btn.active-S { background-color: #F59E0B; color: white; border-color: #D97706; }
-    .status-btn.active-I { background-color: #3B82F6; color: white; border-color: #2563EB; }
-    .status-btn.active-A { background-color: #EF4444; color: white; border-color: #DC2626; }
-    .status-btn.active-C { background-color: #8B5CF6; color: white; border-color: #7C3AED; }
-    
-    /* Styling khusus agar kamera pemindai tampil sempurna tanpa terpotong */
-    #reader {
-      border: none !important;
-      border-radius: 1rem;
-      overflow: hidden;
-      background: #0f172a;
-    }
-    #reader video {
-      border-radius: 1rem;
-      object-fit: cover;
-    }
-    #reader__dashboard_section_csr button {
-      padding: 8px 16px;
-      background-color: #2563eb;
-      color: white;
-      border-radius: 8px;
-      font-weight: bold;
-      font-size: 12px;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-    }
-    #reader__dashboard_section_csr button:hover {
-      background-color: #1d4ed8;
-    }
-    @media print {
-      body * { visibility: hidden; }
-      #printableIdCards, #printableIdCards * { visibility: visible; }
-      #printableIdCards { position: absolute; left: 0; top: 0; width: 100%; }
-    }
-  </style>
-</head>
-<body class="bg-slate-100 font-sans text-slate-800 min-h-screen">
+<script>
+    // ================= URL API GOOGLE APPS SCRIPT =================
+    // Masukkan URL Web App (berawalan https://script.google.com/.../exec) di bawah ini:
+    const API_URL = "MASUKKAN_URL_WEB_APP_APPS_SCRIPT_ANDA_DI_SINI";
 
-  <!-- MODAL LOGIN -->
-  <div id="loginModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center border border-slate-100">
-      <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
-        <i class="fa-solid fa-user-shield"></i>
-      </div>
-      <h2 class="text-2xl font-bold text-slate-800">Presensi & ID Card 5.B</h2>
-      <p class="text-sm text-slate-500 mt-1 mb-6">SD Negeri 1 Sirah Pulau Padang<br><span class="font-medium text-blue-600">Wali Kelas: Pak Mohammad Deri Juniko, S.Pd., Gr.</span></p>
-      
-      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
-        <div class="text-left">
-          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Password Akses Wali Kelas</label>
-          <div class="relative">
-            <input type="password" id="passwordInput" placeholder="Masukkan password..." required 
-                   class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
-            <button type="button" onclick="togglePassVisibility()" class="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
-              <i class="fa-solid fa-eye" id="passEyeIcon"></i>
-            </button>
-          </div>
-        </div>
-        <div id="loginError" class="hidden text-red-500 text-xs font-medium text-left bg-red-50 p-3 rounded-lg border border-red-200"></div>
-        <button type="submit" id="btnLogin" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-          <span>Masuk Portal Aplikasi</span>
-          <i class="fa-solid fa-arrow-right"></i>
-        </button>
-      </form>
-    </div>
-  </div>
-
-  <!-- NAVBAR -->
-  <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-30">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
-      <div class="flex items-center gap-3">
-        <div class="bg-blue-600 text-white w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow">5B</div>
-        <div>
-          <h1 class="font-bold text-lg leading-tight text-slate-800">Presensi & Barcode Kelas 5.B</h1>
-          <p class="text-xs text-slate-500">SD Negeri 1 Sirah Pulau Padang | TA 2026/2027</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-        <button onclick="switchTab('attendance')" id="tabBtnAttendance" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm flex items-center gap-1.5">
-          <i class="fa-solid fa-clipboard-user"></i> Presensi Harian
-        </button>
-        <button onclick="switchTab('scanner')" id="tabBtnScanner" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-800 flex items-center gap-1.5">
-          <i class="fa-solid fa-qrcode"></i> Scan Barcode
-        </button>
-        <button onclick="switchTab('idcards')" id="tabBtnIdCards" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-800 flex items-center gap-1.5">
-          <i class="fa-solid fa-id-card"></i> Cetak ID Card
-        </button>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="openStudentModal()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
-          <i class="fa-solid fa-users-gear text-blue-600"></i> Edit/Tambah Siswa
-        </button>
-        <button onclick="logout()" class="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
-          <i class="fa-solid fa-right-from-bracket"></i> Keluar
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- CONTENT -->
-  <main class="max-w-7xl mx-auto px-4 py-6">
-    
-    <!-- TAB 1: PRESENSI -->
-    <div id="tabAttendance" class="tab-content">
-      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bulan TA</label>
-            <select id="monthSelect" onchange="loadStudentCards()" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="Juli 2026">Juli 2026</option>
-              <option value="Agustus 2026">Agustus 2026</option>
-              <option value="September 2026">September 2026</option>
-              <option value="Oktober 2026">Oktober 2026</option>
-              <option value="November 2026">November 2026</option>
-              <option value="Desember 2026">Desember 2026</option>
-              <option value="Januari 2027">Januari 2027</option>
-              <option value="Februari 2027">Februari 2027</option>
-              <option value="Maret 2027">Maret 2027</option>
-              <option value="April 2027">April 2027</option>
-              <option value="Mei 2027">Mei 2027</option>
-              <option value="Juni 2027">Juni 2027</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Tanggal</label>
-            <select id="daySelect" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
-          </div>
-          <button onclick="setAllHadir()" class="mt-5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center gap-2">
-            <i class="fa-solid fa-check-double"></i> Set Semua Hadir (H)
-          </button>
-        </div>
-        <div class="w-full lg:w-auto text-right">
-          <button onclick="saveAttendance()" id="btnSave" class="w-full lg:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-            <i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Harian
-          </button>
-        </div>
-      </div>
-      <div id="studentCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-    </div>
-
-    <!-- TAB 2: LIVE CONTINUOUS SCANNER (TEMPEL BARCODE LANGSUNG HADIR) -->
-    <div id="tabScanner" class="tab-content hidden">
-      <div class="max-w-xl mx-auto bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center">
-        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner">
-          <i class="fa-solid fa-qrcode"></i>
-        </div>
-        <h2 class="text-xl font-bold text-slate-800">Scanner Kehadiran Otomatis</h2>
-        <p class="text-xs text-slate-500 mb-4">Tempelkan / arahkan Barcode ID Card siswa ke depan kamera. Sistem akan otomatis mencatat kehadiran!</p>
-        
-        <div class="mb-4 flex items-center justify-center gap-3">
-          <span class="text-xs font-bold text-slate-600">Target Tanggal Absen:</span>
-          <span id="scannerActiveDateInfo" class="px-3 py-1 bg-blue-50 text-blue-700 font-bold text-xs rounded-lg border border-blue-200"></span>
-        </div>
-
-        <!-- Wadah Kamera Live Scanner -->
-        <div id="reader" class="mb-4 mx-auto" style="width: 100%; max-width: 400px; min-height: 300px;"></div>
-        
-        <!-- Indikator Hasil Berhasil / Gagal -->
-        <div id="scanResultCard" class="hidden p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 transition-all shadow-md">
-          <i id="scanResultIcon" class="fa-solid text-xl"></i>
-          <span id="scanResultText">Menunggu scan barcode...</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 3: CETAK ID CARDS -->
-    <div id="tabIdCards" class="tab-content hidden">
-      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6 flex flex-wrap justify-between items-center gap-4">
-        <div>
-          <h2 class="font-bold text-lg text-slate-800">Cetak Kartu Tanda Pengenal (ID Card) Siswa</h2>
-          <p class="text-xs text-slate-500">Kartu pelajar lengkap dengan QR Code NIS untuk absensi harian kelas 5.B.</p>
-        </div>
-        <button onclick="window.print()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2">
-          <i class="fa-solid fa-print"></i> Cetak / Print ID Cards
-        </button>
-      </div>
-      <div id="printableIdCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-    </div>
-
-  </main>
-
-  <!-- MODAL EDIT / TAMBAH SISWA -->
-  <div id="studentModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] flex flex-col">
-      <div class="flex justify-between items-center mb-4 border-b pb-3">
-        <h3 class="font-bold text-lg text-slate-800"><i class="fa-solid fa-users-gear text-blue-600"></i> Manajemen Daftar Siswa Kelas 5.B</h3>
-        <button onclick="closeStudentModal()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="flex justify-between items-center mb-3">
-        <p class="text-xs text-slate-500">Tambah, ubah, atau hapus data siswa.</p>
-        <button onclick="addStudentRow()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow transition flex items-center gap-1.5">
-          <i class="fa-solid fa-plus"></i> Tambah Siswa
-        </button>
-      </div>
-      <div class="overflow-y-auto flex-grow border rounded-xl p-2 mb-4 bg-slate-50" style="max-height: 50vh;">
-        <table class="w-full text-left text-xs border-collapse" id="studentTableEdit">
-          <thead>
-            <tr class="bg-slate-200 text-slate-700">
-              <th class="p-2 w-12 text-center">No</th>
-              <th class="p-2">NIS / NISN</th>
-              <th class="p-2">Nama Siswa</th>
-              <th class="p-2 w-20 text-center">L/P</th>
-              <th class="p-2 w-12 text-center">Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="studentEditTbody"></tbody>
-        </table>
-      </div>
-      <div class="flex justify-end gap-2 border-t pt-3">
-        <button onclick="closeStudentModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl">Batal</button>
-        <button onclick="saveStudentChanges()" id="btnSaveStudents" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow">Simpan Perubahan Siswa</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- TOAST -->
-  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3">
-    <i class="fa-solid fa-circle-check text-emerald-400 text-xl" id="toastIcon"></i>
-    <span id="toastMsg" class="font-medium text-sm">Berhasil!</span>
-  </div>
-
-  <script>
     let currentStudents = [];
     let attendanceState = {};
-    let html5QrCodeScanner = null;
-    let lastScannedNis = "";
-    let lastScanTime = 0;
 
     window.onload = function() {
       populateDays();
@@ -257,16 +23,14 @@
       if (tabName === 'attendance') {
         document.getElementById("tabAttendance").classList.remove("hidden");
         document.getElementById("tabBtnAttendance").className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm flex items-center gap-1.5";
-        stopScanner();
       } else if (tabName === 'scanner') {
         document.getElementById("tabScanner").classList.remove("hidden");
         document.getElementById("tabBtnScanner").className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm flex items-center gap-1.5";
         updateScannerInfo();
-        setTimeout(initLiveScanner, 300);
+        setTimeout(() => document.getElementById("quickNisInput").focus(), 200);
       } else if (tabName === 'idcards') {
         document.getElementById("tabIdCards").classList.remove("hidden");
         document.getElementById("tabBtnIdCards").className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm flex items-center gap-1.5";
-        stopScanner();
         renderIdCards();
       }
     }
@@ -283,6 +47,7 @@
       }
     }
 
+    // 1. FUNGSI PEMANGGIL DATA LOGIN
     function handleLogin(e) {
       e.preventDefault();
       const pass = document.getElementById("passwordInput").value;
@@ -293,29 +58,31 @@
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memverifikasi...`;
       err.classList.add("hidden");
 
-      google.script.run
-        .withSuccessHandler(res => {
-          btn.disabled = false;
-          btn.innerHTML = `<span>Masuk Portal Aplikasi</span><i class="fa-solid fa-arrow-right"></i>`;
-          if (res.success) {
-            document.getElementById("loginModal").classList.add("hidden");
-            loadStudentCards();
-          } else {
-            err.textContent = res.message;
-            err.classList.remove("hidden");
-          }
-        })
-        .withFailureHandler(e => {
-          btn.disabled = false;
-          btn.innerHTML = `<span>Masuk Portal Aplikasi</span><i class="fa-solid fa-arrow-right"></i>`;
-          err.textContent = "Error: " + e.message;
+      fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "verifyLogin", password: pass })
+      })
+      .then(res => res.json())
+      .then(res => {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Masuk Portal Aplikasi</span><i class="fa-solid fa-arrow-right"></i>`;
+        if (res.success) {
+          document.getElementById("loginModal").classList.add("hidden");
+          loadStudentCards();
+        } else {
+          err.textContent = res.message;
           err.classList.remove("hidden");
-        })
-        .verifyPassword(pass);
+        }
+      })
+      .catch(e => {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Masuk Portal Aplikasi</span><i class="fa-solid fa-arrow-right"></i>`;
+        err.textContent = "Koneksi API Gagal: " + e.message;
+        err.classList.remove("hidden");
+      });
     }
 
     function logout() {
-      stopScanner();
       document.getElementById("loginModal").classList.remove("hidden");
       document.getElementById("passwordInput").value = "";
     }
@@ -337,6 +104,7 @@
       document.getElementById("daySelect").value = day <= 31 ? day : 1;
     }
 
+    // 2. FUNGSI PEMANGGIL DATA SISWA & REKAP DARI SHEETS
     function loadStudentCards() {
       const month = document.getElementById("monthSelect").value;
       const container = document.getElementById("studentCardsContainer");
@@ -346,17 +114,24 @@
           <p>Memuat data presensi bulan <strong>${month}</strong>...</p>
         </div>`;
 
-      google.script.run
-        .withSuccessHandler(students => {
-          currentStudents = students;
+      fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "getStudents", month: month })
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          currentStudents = res.students;
           attendanceState = {};
-          students.forEach(s => attendanceState[s.nis] = "H");
+          res.students.forEach(s => attendanceState[s.nis] = "H");
           renderCards();
-        })
-        .withFailureHandler(err => {
-          container.innerHTML = `<div class="col-span-full text-center text-red-500 py-6">Gagal memuat data: ${err.message}</div>`;
-        })
-        .getStudentsWithRecap(month);
+        } else {
+          container.innerHTML = `<div class="col-span-full text-center text-red-500 py-6">Gagal memuat data dari Sheets.</div>`;
+        }
+      })
+      .catch(err => {
+        container.innerHTML = `<div class="col-span-full text-center text-red-500 py-6">Error: ${err.message}</div>`;
+      });
     }
 
     function renderCards() {
@@ -409,6 +184,7 @@
       renderCards();
     }
 
+    // 3. FUNGSI PEMANGGIL PENYIMPANAN PRESENSI HARIAN KE SHEETS
     function saveAttendance() {
       const month = document.getElementById("monthSelect").value;
       const day = document.getElementById("daySelect").value;
@@ -417,114 +193,84 @@
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Menyimpan...`;
 
-      google.script.run
-        .withSuccessHandler(res => {
-          btn.disabled = false;
-          btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Harian`;
+      fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "saveAttendance", month: month, day: day, attendanceMap: attendanceState })
+      })
+      .then(res => res.json())
+      .then(res => {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Harian`;
+        if (res.success) {
           playSuccessSound();
-          showToast(`Presensi Tgl ${day} ${month} berhasil disimpan!`);
+          showToast(`Presensi Tgl ${day} ${month} berhasil disimpan ke Sheets!`);
           loadStudentCards();
-        })
-        .withFailureHandler(err => {
-          btn.disabled = false;
-          btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Harian`;
-          alert("Gagal: " + err.message);
-        })
-        .saveDailyAttendance(month, day, attendanceState);
+        } else {
+          alert("Gagal menyimpan: " + res.message);
+        }
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Harian`;
+        alert("Error: " + err.message);
+      });
     }
 
-    // ================= LIVE CONTINUOUS SCANNER (HTML5 QR CODE SCANNER) =================
+    // 4. FUNGSI PEMANGGIL SCAN BARCODE / KETIK NIS KE SHEETS
     function updateScannerInfo() {
       const month = document.getElementById("monthSelect").value;
       const day = document.getElementById("daySelect").value;
       document.getElementById("scannerActiveDateInfo").textContent = `${month} - Tgl ${day}`;
     }
 
-    function initLiveScanner() {
+    function submitQuickNis() {
+      const input = document.getElementById("quickNisInput");
+      const nis = input.value.trim();
+      if (!nis) return;
+
       const month = document.getElementById("monthSelect").value;
       const day = document.getElementById("daySelect").value;
 
-      if (html5QrCodeScanner) {
-        try {
-          html5QrCodeScanner.clear();
-        } catch (e) {}
-      }
+      fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "scanNis", month: month, day: day, nis: nis })
+      })
+      .then(res => res.json())
+      .then(res => {
+        const resCard = document.getElementById("scanResultCard");
+        const resText = document.getElementById("scanResultText");
+        const resIcon = document.getElementById("scanResultIcon");
+        
+        resCard.classList.remove("hidden");
 
-      // Menggunakan Html5QrcodeScanner agar browser memunculkan tombol izin kamera standar (bypass iframe sandbox)
-      html5QrCodeScanner = new Html5QrcodeScanner(
-        "reader", 
-        { fps: 15, qrbox: { width: 250, height: 250 } },
-        false
-      );
-
-      html5QrCodeScanner.render(
-        (decodedText) => {
-          // Pencegahan double scan beruntun dalam waktu 3 detik untuk QR yang sama
-          const now = new Date().getTime();
-          if (decodedText === lastScannedNis && (now - lastScanTime < 4000)) {
-            return;
-          }
-          lastScannedNis = decodedText;
-          lastScanTime = now;
-
-          processLiveScannedNis(decodedText, month, day);
-        },
-        (errorMessage) => {
-          // Scanning frame errors diabaikan agar kamera tetap berjalan mulus
-        }
-      );
-    }
-
-    function stopScanner() {
-      if (html5QrCodeScanner) {
-        try {
-          html5QrCodeScanner.clear().catch(err => console.log(err));
-        } catch (e) {}
-      }
-    }
-
-    function processLiveScannedNis(nis, month, day) {
-      google.script.run
-        .withSuccessHandler(res => {
-          const resCard = document.getElementById("scanResultCard");
-          const resText = document.getElementById("scanResultText");
-          const resIcon = document.getElementById("scanResultIcon");
-          
-          resCard.classList.remove("hidden");
-
-          if (res.success) {
-            // TANDA BERHASIL (Hijau)
-            resCard.className = "p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 bg-emerald-50 border border-emerald-300 text-emerald-800 shadow-md";
-            resIcon.className = "fa-solid fa-circle-check text-2xl text-emerald-600";
-            resText.innerHTML = `BERHASIL! <strong>${res.nama}</strong> (NIS: ${res.nis}) tercatat <strong>HADIR (H)</strong> tanggal ${day} ${month}.`;
-            playSuccessSound();
-            showToast(res.message);
-          } else {
-            // TANDA GAGAL (Merah)
-            resCard.className = "p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 bg-red-50 border border-red-300 text-red-800 shadow-md";
-            resIcon.className = "fa-solid fa-triangle-exclamation text-2xl text-red-600";
-            resText.innerHTML = `GAGAL! ${res.message}`;
-            playErrorSound();
-          }
-
-          // Reset indikator setelah 4 detik
-          setTimeout(() => {
-            resCard.classList.add("hidden");
-          }, 4000);
-        })
-        .withFailureHandler(err => {
-          const resCard = document.getElementById("scanResultCard");
-          const resText = document.getElementById("scanResultText");
-          const resIcon = document.getElementById("scanResultIcon");
-          resCard.classList.remove("hidden");
+        if (res.success) {
+          resCard.className = "p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 bg-emerald-50 border border-emerald-300 text-emerald-800 shadow-md";
+          resIcon.className = "fa-solid fa-circle-check text-2xl text-emerald-600";
+          resText.innerHTML = `BERHASIL! <strong>${res.nama}</strong> tercatat <strong>HADIR (H)</strong>.`;
+          playSuccessSound();
+          showToast(res.message);
+        } else {
           resCard.className = "p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 bg-red-50 border border-red-300 text-red-800 shadow-md";
           resIcon.className = "fa-solid fa-triangle-exclamation text-2xl text-red-600";
-          resText.textContent = "Error Server: " + err.message;
-        })
-        .scanAttendanceByNis(month, day, nis);
+          resText.innerHTML = `GAGAL! ${res.message}`;
+          playErrorSound();
+        }
+
+        input.value = "";
+        input.focus();
+
+        setTimeout(() => {
+          resCard.classList.add("hidden");
+        }, 4000);
+      })
+      .catch(err => {
+        alert("Error koneksi API: " + err.message);
+        input.value = "";
+        input.focus();
+      });
     }
 
-    // ================= MANAJEMEN SISWA =================
+    // 5. FUNGSI PEMANGGIL MANAJEMEN / UPDATE SISWA KE SHEETS
     function openStudentModal() {
       document.getElementById("studentModal").classList.remove("hidden");
       const tbody = document.getElementById("studentEditTbody");
@@ -586,23 +332,30 @@
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...`;
 
-      google.script.run
-        .withSuccessHandler(res => {
-          btn.disabled = false;
-          btn.innerHTML = `Simpan Perubahan Siswa`;
+      fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "updateStudents", students: newList })
+      })
+      .then(res => res.json())
+      .then(res => {
+        btn.disabled = false;
+        btn.innerHTML = `Simpan Perubahan Siswa`;
+        if (res.success) {
           closeStudentModal();
-          showToast("Data siswa diperbarui!");
+          showToast("Data siswa berhasil diperbarui di Google Sheets!");
           loadStudentCards();
-        })
-        .withFailureHandler(err => {
-          btn.disabled = false;
-          btn.innerHTML = `Simpan Perubahan Siswa`;
-          alert("Gagal: " + err.message);
-        })
-        .updateStudentData(newList);
+        } else {
+          alert("Gagal memperbarui siswa.");
+        }
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = `Simpan Perubahan Siswa`;
+        alert("Error: " + err.message);
+      });
     }
 
-    // ================= ID CARDS =================
+    // 6. RENDER ID CARDS & AUDIO EFFECTS
     function renderIdCards() {
       const container = document.getElementById("printableIdCards");
       if (currentStudents.length === 0) {
@@ -658,15 +411,14 @@
       });
     }
 
-    // Sound effects
     function playSuccessSound() {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
         gain.gain.setValueAtTime(0.2, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
         osc.connect(gain);
@@ -704,5 +456,3 @@
       }, 3500);
     }
   </script>
-</body>
-</html>
