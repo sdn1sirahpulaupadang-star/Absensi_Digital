@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presensi Barcode & ID Card Kelas 5.B - SDN 1 Sirah Pulau Padang</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <!-- HTML5 QR Code Library -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    .status-btn.active-H { background-color: #10B981; color: white; border-color: #059669; }
+    .status-btn.active-S { background-color: #F59E0B; color: white; border-color: #D97706; }
+    .status-btn.active-I { background-color: #3B82F6; color: white; border-color: #2563EB; }
+    .status-btn.active-A { background-color: #EF4444; color: white; border-color: #DC2626; }
+    .status-btn.active-C { background-color: #8B5CF6; color: white; border-color: #7C3AED; }
+    
+    /* Styling khusus agar kamera pemindai tampil sempurna tanpa terpotong */
+    #reader {
+      border: none !important;
+      border-radius: 1rem;
+      overflow: hidden;
+      background: #0f172a;
+    }
+    #reader video {
+      border-radius: 1rem;
+      object-fit: cover;
+    }
+    #reader__dashboard_section_csr button {
+      padding: 8px 16px;
+      background-color: #2563eb;
+      color: white;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 12px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    #reader__dashboard_section_csr button:hover {
+      background-color: #1d4ed8;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #printableIdCards, #printableIdCards * { visibility: visible; }
+      #printableIdCards { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 min-h-screen">
+
+  <!-- MODAL LOGIN -->
+  <div id="loginModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center border border-slate-100">
+      <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
+        <i class="fa-solid fa-user-shield"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-800">Presensi & ID Card 5.B</h2>
+      <p class="text-sm text-slate-500 mt-1 mb-6">SD Negeri 1 Sirah Pulau Padang<br><span class="font-medium text-blue-600">Wali Kelas: Pak Mohammad Deri Juniko, S.Pd., Gr.</span></p>
+      
+      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+        <div class="text-left">
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Password Akses Wali Kelas</label>
+          <div class="relative">
+            <input type="password" id="passwordInput" placeholder="Masukkan password..." required 
+                   class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+            <button type="button" onclick="togglePassVisibility()" class="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
+              <i class="fa-solid fa-eye" id="passEyeIcon"></i>
+            </button>
+          </div>
+        </div>
+        <div id="loginError" class="hidden text-red-500 text-xs font-medium text-left bg-red-50 p-3 rounded-lg border border-red-200"></div>
+        <button type="submit" id="btnLogin" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+          <span>Masuk Portal Aplikasi</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- NAVBAR -->
+  <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <div class="bg-blue-600 text-white w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow">5B</div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight text-slate-800">Presensi & Barcode Kelas 5.B</h1>
+          <p class="text-xs text-slate-500">SD Negeri 1 Sirah Pulau Padang | TA 2026/2027</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+        <button onclick="switchTab('attendance')" id="tabBtnAttendance" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-clipboard-user"></i> Presensi Harian
+        </button>
+        <button onclick="switchTab('scanner')" id="tabBtnScanner" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-qrcode"></i> Scan Barcode
+        </button>
+        <button onclick="switchTab('idcards')" id="tabBtnIdCards" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-id-card"></i> Cetak ID Card
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openStudentModal()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-users-gear text-blue-600"></i> Edit/Tambah Siswa
+        </button>
+        <button onclick="logout()" class="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-right-from-bracket"></i> Keluar
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    
+    <!-- TAB 1: PRESENSI -->
+    <div id="tabAttendance" class="tab-content">
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bulan TA</label>
+            <select id="monthSelect" onchange="loadStudentCards()" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="Juli 2026">Juli 2026</option>
+              <option value="Agustus 2026">Agustus 2026</option>
+              <option value="September 2026">September 2026</option>
+              <option value="Oktober 2026">Oktober 2026</option>
+              <option value="November 2026">November 2026</option>
+              <option value="Desember 2026">Desember 2026</option>
+              <option value="Januari 2027">Januari 2027</option>
+              <option value="Februari 2027">Februari 2027</option>
+              <option value="Maret 2027">Maret 2027</option>
+              <option value="April 2027">April 2027</option>
+              <option value="Mei 2027">Mei 2027</option>
+              <option value="Juni 2027">Juni 2027</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Tanggal</label>
+            <select id="daySelect" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+          </div>
+          <button onclick="setAllHadir()" class="mt-5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center gap-2">
+            <i class="fa-solid fa-check-double"></i> Set Semua Hadir (H)
+          </button>
+        </div>
+        <div class="w-full lg:w-auto text-right">
+          <button onclick="saveAttendance()" id="btnSave" class="w-full lg:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Harian
+          </button>
+        </div>
+      </div>
+      <div id="studentCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- TAB 2: LIVE CONTINUOUS SCANNER (TEMPEL BARCODE LANGSUNG HADIR) -->
+    <div id="tabScanner" class="tab-content hidden">
+      <div class="max-w-xl mx-auto bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center">
+        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner">
+          <i class="fa-solid fa-qrcode"></i>
+        </div>
+        <h2 class="text-xl font-bold text-slate-800">Scanner Kehadiran Otomatis</h2>
+        <p class="text-xs text-slate-500 mb-4">Tempelkan / arahkan Barcode ID Card siswa ke depan kamera. Sistem akan otomatis mencatat kehadiran!</p>
+        
+        <div class="mb-4 flex items-center justify-center gap-3">
+          <span class="text-xs font-bold text-slate-600">Target Tanggal Absen:</span>
+          <span id="scannerActiveDateInfo" class="px-3 py-1 bg-blue-50 text-blue-700 font-bold text-xs rounded-lg border border-blue-200"></span>
+        </div>
+
+        <!-- Wadah Kamera Live Scanner -->
+        <div id="reader" class="mb-4 mx-auto" style="width: 100%; max-width: 400px; min-height: 300px;"></div>
+        
+        <!-- Indikator Hasil Berhasil / Gagal -->
+        <div id="scanResultCard" class="hidden p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 transition-all shadow-md">
+          <i id="scanResultIcon" class="fa-solid text-xl"></i>
+          <span id="scanResultText">Menunggu scan barcode...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: CETAK ID CARDS -->
+    <div id="tabIdCards" class="tab-content hidden">
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6 flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h2 class="font-bold text-lg text-slate-800">Cetak Kartu Tanda Pengenal (ID Card) Siswa</h2>
+          <p class="text-xs text-slate-500">Kartu pelajar lengkap dengan QR Code NIS untuk absensi harian kelas 5.B.</p>
+        </div>
+        <button onclick="window.print()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2">
+          <i class="fa-solid fa-print"></i> Cetak / Print ID Cards
+        </button>
+      </div>
+      <div id="printableIdCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div>
+
+  </main>
+
+  <!-- MODAL EDIT / TAMBAH SISWA -->
+  <div id="studentModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center mb-4 border-b pb-3">
+        <h3 class="font-bold text-lg text-slate-800"><i class="fa-solid fa-users-gear text-blue-600"></i> Manajemen Daftar Siswa Kelas 5.B</h3>
+        <button onclick="closeStudentModal()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="flex justify-between items-center mb-3">
+        <p class="text-xs text-slate-500">Tambah, ubah, atau hapus data siswa.</p>
+        <button onclick="addStudentRow()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow transition flex items-center gap-1.5">
+          <i class="fa-solid fa-plus"></i> Tambah Siswa
+        </button>
+      </div>
+      <div class="overflow-y-auto flex-grow border rounded-xl p-2 mb-4 bg-slate-50" style="max-height: 50vh;">
+        <table class="w-full text-left text-xs border-collapse" id="studentTableEdit">
+          <thead>
+            <tr class="bg-slate-200 text-slate-700">
+              <th class="p-2 w-12 text-center">No</th>
+              <th class="p-2">NIS / NISN</th>
+              <th class="p-2">Nama Siswa</th>
+              <th class="p-2 w-20 text-center">L/P</th>
+              <th class="p-2 w-12 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="studentEditTbody"></tbody>
+        </table>
+      </div>
+      <div class="flex justify-end gap-2 border-t pt-3">
+        <button onclick="closeStudentModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl">Batal</button>
+        <button onclick="saveStudentChanges()" id="btnSaveStudents" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow">Simpan Perubahan Siswa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+    <i class="fa-solid fa-circle-check text-emerald-400 text-xl" id="toastIcon"></i>
+    <span id="toastMsg" class="font-medium text-sm">Berhasil!</span>
+  </div>
+
+  <script>
+    let currentStudents = [];
+    let attendanceState = {};
+    let html5QrCodeScanner = null;
+    let lastScannedNis = "";
+    let lastScanTime = 0;
+
+    window.onload = function() {
+      populateDays();
+      autoSelectToday();
+    };
+
+    function switchTab(tabName) {
+      document.getElementById("tabAttendance").classList.add("hidden");
+      document.getElementById("tabScanner").classList.add("hidden");
+      document.getElementById("tabIdCards").classList.add("hidden");
+
+      document.getElementById("tabBtnAttendance").className = "px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-800 flex items-center gap-1.5";
+      document.getElementById("tabBtnScanner").className = "px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-800 flex items-center gap-1.5";
+      document.getElementById("tabBtnIdCards").className = "px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-800 flex items-center gap-1.5";
+
+      if (tabName === 'attendance') {
+        document.getElementById("tabAttendance").classList.remove("hidden");
+        document.getElementById("tabBtnAttendance").className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm flex items-center gap-1.5";
+        stopScanner();
+      } else if (tabName === 'scanner') {
+        document.getElementById("tabScanner").classList.remove("hidden");
+        document.getElementById("tabBtnScanner").className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm flex items-center gap-1.5";
+        updateScannerInfo();
+        setTimeout(initLiveScanner, 300);
+      } else if (tabName === 'idcards') {
+        document.getElementById("tabIdCards").classList.remove("hidden");
+        document.getElementById("tabBtnIdCards").className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm flex items-center gap-1.5";
+        stopScanner();
+        renderIdCards();
+      }
+    }
+
+    function togglePassVisibility() {
+      const input = document.getElementById("passwordInput");
+      const icon = document.getElementById("passEyeIcon");
+      if (input.type === "password") {
+        input.type = "text";
+        icon.className = "fa-solid fa-eye-slash";
+      } else {
+        input.type = "password";
+        icon.className = "fa-solid fa-eye";
+      }
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const pass = document.getElementById("passwordInput").value;
+      const btn = document.getElementById("btnLogin");
+      const err = document.getElementById("loginError");
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memverifikasi...`;
+      err.classList.add("hidden");
+
+      google.script.run
+        .withSuccessHandler(res => {
+          btn.disabled = false;
+          btn.innerHTML = `<span>Masuk Portal Aplikasi</span><i class="fa-solid fa-arrow-right"></i>`;
+          if (res.success) {
+            document.getElementById("loginModal").classList.add("hidden");
+            loadStudentCards();
+          } else {
+            err.textContent = res.message;
+            err.classList.remove("hidden");
+          }
+        })
+        .withFailureHandler(e => {
+          btn.disabled = false;
+          btn.innerHTML = `<span>Masuk Portal Aplikasi</span><i class="fa-solid fa-arrow-right"></i>`;
+          err.textContent = "Error: " + e.message;
+          err.classList.remove("hidden");
+        })
+        .verifyPassword(pass);
+    }
+
+    function logout() {
+      stopScanner();
+      document.getElementById("loginModal").classList.remove("hidden");
+      document.getElementById("passwordInput").value = "";
+    }
+
+    function populateDays() {
+      const daySel = document.getElementById("daySelect");
+      daySel.innerHTML = "";
+      for (let i = 1; i <= 31; i++) {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = `Tanggal ${i}`;
+        daySel.appendChild(opt);
+      }
+    }
+
+    function autoSelectToday() {
+      const now = new Date();
+      const day = now.getDate();
+      document.getElementById("daySelect").value = day <= 31 ? day : 1;
+    }
+
+    function loadStudentCards() {
+      const month = document.getElementById("monthSelect").value;
+      const container = document.getElementById("studentCardsContainer");
+      container.innerHTML = `
+        <div class="col-span-full text-center py-12 text-slate-400">
+          <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-3 text-blue-600"></i>
+          <p>Memuat data presensi bulan <strong>${month}</strong>...</p>
+        </div>`;
+
+      google.script.run
+        .withSuccessHandler(students => {
+          currentStudents = students;
+          attendanceState = {};
+          students.forEach(s => attendanceState[s.nis] = "H");
+          renderCards();
+        })
+        .withFailureHandler(err => {
+          container.innerHTML = `<div class="col-span-full text-center text-red-500 py-6">Gagal memuat data: ${err.message}</div>`;
+        })
+        .getStudentsWithRecap(month);
+    }
+
+    function renderCards() {
+      const container = document.getElementById("studentCardsContainer");
+      if (currentStudents.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500">Belum ada siswa terdaftar. Gunakan menu Edit/Tambah Siswa.</div>`;
+        return;
+      }
+
+      container.innerHTML = currentStudents.map(s => {
+        const hasWarning = parseInt(s.alfa) > 0 || parseInt(s.cabut) > 0;
+        const currentStatus = attendanceState[s.nis] || "H";
+
+        return `
+          <div class="bg-white rounded-2xl p-4 border ${hasWarning ? 'border-red-300 shadow-red-50' : 'border-slate-200'} shadow-sm transition relative flex flex-col justify-between">
+            ${hasWarning ? `<span class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow"><i class="fa-solid fa-triangle-exclamation"></i> Perhatian</span>` : ''}
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">No. ${s.no}</span>
+                <span class="text-xs font-semibold px-2 py-0.5 ${s.lp === 'L' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'} rounded-md">${s.lp === 'L' ? 'Laki-Laki' : 'Perempuan'}</span>
+              </div>
+              <h3 class="font-bold text-slate-800 text-base leading-snug">${s.nama}</h3>
+              <p class="text-xs text-slate-400 mb-3">NIS: ${s.nis}</p>
+            </div>
+            <div class="bg-slate-50 p-2.5 rounded-xl text-xs flex justify-between items-center mb-3 border border-slate-100">
+              <div><span class="text-slate-400">%H:</span> <strong class="text-slate-700">${s.persen}</strong></div>
+              <div><span class="text-slate-400">Alfa:</span> <strong class="${s.alfa > 0 ? 'text-red-600 font-bold' : 'text-slate-600'}">${s.alfa}</strong></div>
+              <div><span class="text-slate-400">Cabut:</span> <strong class="${s.cabut > 0 ? 'text-purple-600 font-bold' : 'text-slate-600'}">${s.cabut}</strong></div>
+            </div>
+            <div class="grid grid-cols-5 gap-1">
+              ${['H', 'S', 'I', 'A', 'C'].map(st => `
+                <button type="button" onclick="setStatus('${s.nis}', '${st}')" 
+                        class="status-btn py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 transition ${currentStatus === st ? 'active-' + st : ''}">
+                  ${st}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setStatus(nis, status) {
+      attendanceState[nis] = status;
+      renderCards();
+    }
+
+    function setAllHadir() {
+      currentStudents.forEach(s => attendanceState[s.nis] = "H");
+      renderCards();
+    }
+
+    function saveAttendance() {
+      const month = document.getElementById("monthSelect").value;
+      const day = document.getElementById("daySelect").value;
+      const btn = document.getElementById("btnSave");
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Menyimpan...`;
+
+      google.script.run
+        .withSuccessHandler(res => {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Harian`;
+          playSuccessSound();
+          showToast(`Presensi Tgl ${day} ${month} berhasil disimpan!`);
+          loadStudentCards();
+        })
+        .withFailureHandler(err => {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Harian`;
+          alert("Gagal: " + err.message);
+        })
+        .saveDailyAttendance(month, day, attendanceState);
+    }
+
+    // ================= LIVE CONTINUOUS SCANNER (HTML5 QR CODE SCANNER) =================
+    function updateScannerInfo() {
+      const month = document.getElementById("monthSelect").value;
+      const day = document.getElementById("daySelect").value;
+      document.getElementById("scannerActiveDateInfo").textContent = `${month} - Tgl ${day}`;
+    }
+
+    function initLiveScanner() {
+      const month = document.getElementById("monthSelect").value;
+      const day = document.getElementById("daySelect").value;
+
+      if (html5QrCodeScanner) {
+        try {
+          html5QrCodeScanner.clear();
+        } catch (e) {}
+      }
+
+      // Menggunakan Html5QrcodeScanner agar browser memunculkan tombol izin kamera standar (bypass iframe sandbox)
+      html5QrCodeScanner = new Html5QrcodeScanner(
+        "reader", 
+        { fps: 15, qrbox: { width: 250, height: 250 } },
+        false
+      );
+
+      html5QrCodeScanner.render(
+        (decodedText) => {
+          // Pencegahan double scan beruntun dalam waktu 3 detik untuk QR yang sama
+          const now = new Date().getTime();
+          if (decodedText === lastScannedNis && (now - lastScanTime < 4000)) {
+            return;
+          }
+          lastScannedNis = decodedText;
+          lastScanTime = now;
+
+          processLiveScannedNis(decodedText, month, day);
+        },
+        (errorMessage) => {
+          // Scanning frame errors diabaikan agar kamera tetap berjalan mulus
+        }
+      );
+    }
+
+    function stopScanner() {
+      if (html5QrCodeScanner) {
+        try {
+          html5QrCodeScanner.clear().catch(err => console.log(err));
+        } catch (e) {}
+      }
+    }
+
+    function processLiveScannedNis(nis, month, day) {
+      google.script.run
+        .withSuccessHandler(res => {
+          const resCard = document.getElementById("scanResultCard");
+          const resText = document.getElementById("scanResultText");
+          const resIcon = document.getElementById("scanResultIcon");
+          
+          resCard.classList.remove("hidden");
+
+          if (res.success) {
+            // TANDA BERHASIL (Hijau)
+            resCard.className = "p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 bg-emerald-50 border border-emerald-300 text-emerald-800 shadow-md";
+            resIcon.className = "fa-solid fa-circle-check text-2xl text-emerald-600";
+            resText.innerHTML = `BERHASIL! <strong>${res.nama}</strong> (NIS: ${res.nis}) tercatat <strong>HADIR (H)</strong> tanggal ${day} ${month}.`;
+            playSuccessSound();
+            showToast(res.message);
+          } else {
+            // TANDA GAGAL (Merah)
+            resCard.className = "p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 bg-red-50 border border-red-300 text-red-800 shadow-md";
+            resIcon.className = "fa-solid fa-triangle-exclamation text-2xl text-red-600";
+            resText.innerHTML = `GAGAL! ${res.message}`;
+            playErrorSound();
+          }
+
+          // Reset indikator setelah 4 detik
+          setTimeout(() => {
+            resCard.classList.add("hidden");
+          }, 4000);
+        })
+        .withFailureHandler(err => {
+          const resCard = document.getElementById("scanResultCard");
+          const resText = document.getElementById("scanResultText");
+          const resIcon = document.getElementById("scanResultIcon");
+          resCard.classList.remove("hidden");
+          resCard.className = "p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 bg-red-50 border border-red-300 text-red-800 shadow-md";
+          resIcon.className = "fa-solid fa-triangle-exclamation text-2xl text-red-600";
+          resText.textContent = "Error Server: " + err.message;
+        })
+        .scanAttendanceByNis(month, day, nis);
+    }
+
+    // ================= MANAJEMEN SISWA =================
+    function openStudentModal() {
+      document.getElementById("studentModal").classList.remove("hidden");
+      const tbody = document.getElementById("studentEditTbody");
+      tbody.innerHTML = "";
+      currentStudents.forEach((s, idx) => appendStudentRow(idx + 1, s.nis, s.nama, s.lp));
+    }
+
+    function closeStudentModal() {
+      document.getElementById("studentModal").classList.add("hidden");
+    }
+
+    function addStudentRow() {
+      const tbody = document.getElementById("studentEditTbody");
+      appendStudentRow(tbody.rows.length + 1, "", "", "L");
+    }
+
+    function appendStudentRow(no, nis, nama, lp) {
+      const tbody = document.getElementById("studentEditTbody");
+      const tr = document.createElement("tr");
+      tr.className = "border-b hover:bg-slate-100 transition";
+      tr.innerHTML = `
+        <td class="p-2 text-center font-bold text-slate-500 row-no">${no}</td>
+        <td class="p-2"><input type="text" value="${nis}" class="w-full px-2 py-1 border rounded text-xs input-nis" placeholder="NIS"></td>
+        <td class="p-2"><input type="text" value="${nama}" class="w-full px-2 py-1 border rounded text-xs input-nama" placeholder="Nama"></td>
+        <td class="p-2 text-center">
+          <select class="px-2 py-1 border rounded text-xs input-lp">
+            <option value="L" ${lp === 'L' ? 'selected' : ''}>L</option>
+            <option value="P" ${lp === 'P' ? 'selected' : ''}>P</option>
+          </select>
+        </td>
+        <td class="p-2 text-center">
+          <button type="button" onclick="this.closest('tr').remove(); renumberRows();" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function renumberRows() {
+      document.querySelectorAll("#studentEditTbody tr").forEach((tr, idx) => {
+        tr.querySelector(".row-no").textContent = idx + 1;
+      });
+    }
+
+    function saveStudentChanges() {
+      const rows = document.querySelectorAll("#studentEditTbody tr");
+      const newList = [];
+      for (let i = 0; i < rows.length; i++) {
+        const nis = rows[i].querySelector(".input-nis").value.trim();
+        const nama = rows[i].querySelector(".input-nama").value.trim();
+        const lp = rows[i].querySelector(".input-lp").value;
+        if (!nis || !nama) {
+          alert(`Baris ke-${i+1}: NIS dan Nama tidak boleh kosong!`);
+          return;
+        }
+        newList.push({ no: i + 1, nis: nis, nama: nama, lp: lp });
+      }
+
+      const btn = document.getElementById("btnSaveStudents");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...`;
+
+      google.script.run
+        .withSuccessHandler(res => {
+          btn.disabled = false;
+          btn.innerHTML = `Simpan Perubahan Siswa`;
+          closeStudentModal();
+          showToast("Data siswa diperbarui!");
+          loadStudentCards();
+        })
+        .withFailureHandler(err => {
+          btn.disabled = false;
+          btn.innerHTML = `Simpan Perubahan Siswa`;
+          alert("Gagal: " + err.message);
+        })
+        .updateStudentData(newList);
+    }
+
+    // ================= ID CARDS =================
+    function renderIdCards() {
+      const container = document.getElementById("printableIdCards");
+      if (currentStudents.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500">Belum ada siswa.</div>`;
+        return;
+      }
+      container.innerHTML = currentStudents.map(s => `
+        <div class="bg-white rounded-2xl p-5 border-2 border-slate-200 shadow-md relative flex flex-col justify-between w-full max-w-sm mx-auto overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-3 bg-blue-600"></div>
+          <div class="text-center border-b border-slate-100 pb-3 mb-3 pt-1">
+            <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">SD Negeri 1 Sirah Pulau Padang</h4>
+            <h3 class="text-base font-extrabold text-blue-900 leading-tight">KARTU PELAJAR KELAS 5.B</h3>
+            <p class="text-[10px] text-slate-500">Tahun Ajaran 2026/2027</p>
+          </div>
+          <div class="flex items-center justify-between gap-3 my-2">
+            <div>
+              <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded">No. ${s.no}</span>
+              <h2 class="font-bold text-slate-800 text-lg mt-1 leading-snug">${s.nama}</h2>
+              <p class="text-xs font-mono font-semibold text-blue-600 mt-0.5">NIS: ${s.nis}</p>
+              <span class="inline-block mt-2 text-[10px] font-bold px-2 py-0.5 ${s.lp === 'L' ? 'bg-blue-50 text-blue-700' : 'bg-pink-50 text-pink-700'} rounded">
+                ${s.lp === 'L' ? 'Laki-Laki' : 'Perempuan'}
+              </span>
+            </div>
+            <div class="p-2 bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center">
+              <div id="qrcode-${s.nis}" class="w-24 h-24 flex items-center justify-center"></div>
+            </div>
+          </div>
+          <div class="border-t border-slate-100 pt-3 mt-2 flex justify-between items-end text-[10px] text-slate-500">
+            <div>
+              <p>Wali Kelas,</p>
+              <p class="font-bold text-slate-800 mt-3">Pak M. Deri Juniko, S.Pd., Gr.</p>
+            </div>
+            <div class="text-right">
+              <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[9px]">ID-${s.nis}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      currentStudents.forEach(s => {
+        const el = document.getElementById(`qrcode-${s.nis}`);
+        if (el) {
+          el.innerHTML = "";
+          new QRCode(el, {
+            text: String(s.nis),
+            width: 88,
+            height: 88,
+            colorDark: "#1F4E78",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+          });
+        }
+      });
+    }
+
+    // Sound effects
+    function playSuccessSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+      } catch (e) {}
+    }
+
+    function playErrorSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } catch (e) {}
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      document.getElementById("toastMsg").textContent = msg;
+      toast.classList.remove("translate-y-20", "opacity-0");
+      toast.classList.add("translate-y-0", "opacity-100");
+      setTimeout(() => {
+        toast.classList.remove("translate-y-0", "opacity-100");
+        toast.classList.add("translate-y-20", "opacity-0");
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
