@@ -1,5 +1,224 @@
-<script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxP2x0u4_Z-nM_4rc46H0J2rJFvZwSJQsBkdTEjaY4DPW2eSa61VJoxyU4PnjBaU2TA/exec";
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presensi Digital & Barcode Kelas 5.B - SDN 1 Sirah Pulau Padang</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- QRCode Generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    .status-btn.active-H { background-color: #10B981; color: white; border-color: #059669; }
+    .status-btn.active-S { background-color: #F59E0B; color: white; border-color: #D97706; }
+    .status-btn.active-I { background-color: #3B82F6; color: white; border-color: #2563EB; }
+    .status-btn.active-A { background-color: #EF4444; color: white; border-color: #DC2626; }
+    .status-btn.active-C { background-color: #8B5CF6; color: white; border-color: #7C3AED; }
+    @media print {
+      body * { visibility: hidden; }
+      #printableIdCards, #printableIdCards * { visibility: visible; }
+      #printableIdCards { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 min-h-screen">
+
+  <!-- MODAL LOGIN -->
+  <div id="loginModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center border border-slate-100">
+      <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
+        <i class="fa-solid fa-user-shield"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-800">Presensi & ID Card 5.B</h2>
+      <p class="text-sm text-slate-500 mt-1 mb-6">SD Negeri 1 Sirah Pulau Padang<br><span class="font-medium text-blue-600">Wali Kelas: Pak Mohammad Deri Juniko, S.Pd., Gr.</span></p>
+      
+      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+        <div class="text-left">
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Password Akses Wali Kelas</label>
+          <div class="relative">
+            <input type="password" id="passwordInput" placeholder="Masukkan password..." required 
+                   class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+            <button type="button" onclick="togglePassVisibility()" class="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
+              <i class="fa-solid fa-eye" id="passEyeIcon"></i>
+            </button>
+          </div>
+        </div>
+        <div id="loginError" class="hidden text-red-500 text-xs font-medium text-left bg-red-50 p-3 rounded-lg border border-red-200"></div>
+        <button type="submit" id="btnLogin" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+          <span>Masuk Portal Aplikasi</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- NAVBAR -->
+  <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <div class="bg-blue-600 text-white w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow">5B</div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight text-slate-800">Presensi & Barcode Kelas 5.B</h1>
+          <p class="text-xs text-slate-500">SD Negeri 1 Sirah Pulau Padang | TA 2026/2027</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+        <button onclick="switchTab('attendance')" id="tabBtnAttendance" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-blue-600 shadow-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-clipboard-user"></i> Presensi Harian
+        </button>
+        <button onclick="switchTab('scanner')" id="tabBtnScanner" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-qrcode"></i> Scan Barcode
+        </button>
+        <button onclick="switchTab('idcards')" id="tabBtnIdCards" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-id-card"></i> Cetak ID Card
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openStudentModal()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-users-gear text-blue-600"></i> Edit/Tambah Siswa
+        </button>
+        <button onclick="logout()" class="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-right-from-bracket"></i> Keluar
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    
+    <!-- TAB 1: PRESENSI -->
+    <div id="tabAttendance" class="tab-content">
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bulan TA</label>
+            <select id="monthSelect" onchange="loadStudentCards()" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="Juli 2026">Juli 2026</option>
+              <option value="Agustus 2026">Agustus 2026</option>
+              <option value="September 2026">September 2026</option>
+              <option value="Oktober 2026">Oktober 2026</option>
+              <option value="November 2026">November 2026</option>
+              <option value="Desember 2026">Desember 2026</option>
+              <option value="Januari 2027">Januari 2027</option>
+              <option value="Februari 2027">Februari 2027</option>
+              <option value="Maret 2027">Maret 2027</option>
+              <option value="April 2027">April 2027</option>
+              <option value="Mei 2027">Mei 2027</option>
+              <option value="Juni 2027">Juni 2027</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Tanggal</label>
+            <select id="daySelect" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+          </div>
+          <button onclick="setAllHadir()" class="mt-5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center gap-2">
+            <i class="fa-solid fa-check-double"></i> Set Semua Hadir (H)
+          </button>
+        </div>
+        <div class="w-full lg:w-auto text-right">
+          <button onclick="saveAttendance()" id="btnSave" class="w-full lg:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Harian
+          </button>
+        </div>
+      </div>
+      <div id="studentCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- TAB 2: SCANNER & QUICK INPUT -->
+    <div id="tabScanner" class="tab-content hidden">
+      <div class="max-w-xl mx-auto bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center">
+        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner">
+          <i class="fa-solid fa-barcode"></i>
+        </div>
+        <h2 class="text-xl font-bold text-slate-800">Scan Barcode Kehadiran</h2>
+        <p class="text-xs text-slate-500 mb-4">Gunakan USB Barcode Scanner atau Ketik/Scan NIS untuk mencatat kehadiran siswa secara instan.</p>
+        
+        <div class="mb-4 flex items-center justify-center gap-3">
+          <span class="text-xs font-bold text-slate-600">Target Tanggal Absen:</span>
+          <span id="scannerActiveDateInfo" class="px-3 py-1 bg-blue-50 text-blue-700 font-bold text-xs rounded-lg border border-blue-200"></span>
+        </div>
+
+        <div class="mb-5 p-4 bg-blue-50/50 rounded-2xl border border-blue-200 text-left">
+          <label class="block text-xs font-bold text-blue-900 mb-1"><i class="fa-solid fa-keyboard"></i> Scan Barcode / Ketik NIS Siswa:</label>
+          <div class="flex gap-2">
+            <input type="text" id="quickNisInput" placeholder="Arahkan scanner atau ketik NIS..." 
+                   class="w-full px-4 py-2.5 rounded-xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono bg-white"
+                   onkeydown="if(event.key === 'Enter') submitQuickNis()">
+            <button onclick="submitQuickNis()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition">
+              Hadirkan
+            </button>
+          </div>
+        </div>
+
+        <div id="scanResultCard" class="hidden p-4 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-3 transition-all shadow-md">
+          <i id="scanResultIcon" class="fa-solid text-xl"></i>
+          <span id="scanResultText">Menunggu scan barcode...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: CETAK ID CARDS -->
+    <div id="tabIdCards" class="tab-content hidden">
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6 flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h2 class="font-bold text-lg text-slate-800">Cetak Kartu Tanda Pengenal (ID Card) Siswa</h2>
+          <p class="text-xs text-slate-500">Kartu pelajar lengkap dengan QR Code NIS untuk absensi harian kelas 5.B.</p>
+        </div>
+        <button onclick="window.print()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2">
+          <i class="fa-solid fa-print"></i> Cetak / Print ID Cards
+        </button>
+      </div>
+      <div id="printableIdCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div>
+
+  </main>
+
+  <!-- MODAL EDIT / TAMBAH SISWA -->
+  <div id="studentModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center mb-4 border-b pb-3">
+        <h3 class="font-bold text-lg text-slate-800"><i class="fa-solid fa-users-gear text-blue-600"></i> Manajemen Daftar Siswa Kelas 5.B</h3>
+        <button onclick="closeStudentModal()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="flex justify-between items-center mb-3">
+        <p class="text-xs text-slate-500">Tambah, ubah, atau hapus data siswa.</p>
+        <button onclick="addStudentRow()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow transition flex items-center gap-1.5">
+          <i class="fa-solid fa-plus"></i> Tambah Siswa
+        </button>
+      </div>
+      <div class="overflow-y-auto flex-grow border rounded-xl p-2 mb-4 bg-slate-50" style="max-height: 50vh;">
+        <table class="w-full text-left text-xs border-collapse" id="studentTableEdit">
+          <thead>
+            <tr class="bg-slate-200 text-slate-700">
+              <th class="p-2 w-12 text-center">No</th>
+              <th class="p-2">NIS / NISN</th>
+              <th class="p-2">Nama Siswa</th>
+              <th class="p-2 w-20 text-center">L/P</th>
+              <th class="p-2 w-12 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="studentEditTbody"></tbody>
+        </table>
+      </div>
+      <div class="flex justify-end gap-2 border-t pt-3">
+        <button onclick="closeStudentModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl">Batal</button>
+        <button onclick="saveStudentChanges()" id="btnSaveStudents" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow">Simpan Perubahan Siswa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+    <i class="fa-solid fa-circle-check text-emerald-400 text-xl" id="toastIcon"></i>
+    <span id="toastMsg" class="font-medium text-sm">Berhasil!</span>
+  </div>
+
+  <script>
+    // ================= URL API GOOGLE APPS SCRIPT =================
+    const API_URL = "https://script.google.com/macros/s/AKfycbxP2xOu4_Z-nM_4rc46H0J2rJfVZwSJQsBkdTEjayY4DPW2eSa61VJoxyU4PnjBaU2TA/exec";
 
     let currentStudents = [];
     let attendanceState = {};
@@ -45,7 +264,6 @@
       }
     }
 
-    // 1. FUNGSI PEMANGGIL DATA LOGIN
     function handleLogin(e) {
       e.preventDefault();
       const pass = document.getElementById("passwordInput").value;
@@ -81,7 +299,7 @@
     }
 
     function logout() {
-      document.getElementById("loginModal").classList.remove("hidden");
+      document.getElementById("loginModal").classList.add("hidden");
       document.getElementById("passwordInput").value = "";
     }
 
@@ -102,7 +320,6 @@
       document.getElementById("daySelect").value = day <= 31 ? day : 1;
     }
 
-    // 2. FUNGSI PEMANGGIL DATA SISWA & REKAP DARI SHEETS
     function loadStudentCards() {
       const month = document.getElementById("monthSelect").value;
       const container = document.getElementById("studentCardsContainer");
@@ -182,7 +399,6 @@
       renderCards();
     }
 
-    // 3. FUNGSI PEMANGGIL PENYIMPANAN PRESENSI HARIAN KE SHEETS
     function saveAttendance() {
       const month = document.getElementById("monthSelect").value;
       const day = document.getElementById("daySelect").value;
@@ -214,7 +430,6 @@
       });
     }
 
-    // 4. FUNGSI PEMANGGIL SCAN BARCODE / KETIK NIS KE SHEETS
     function updateScannerInfo() {
       const month = document.getElementById("monthSelect").value;
       const day = document.getElementById("daySelect").value;
@@ -268,7 +483,6 @@
       });
     }
 
-    // 5. FUNGSI PEMANGGIL MANAJEMEN / UPDATE SISWA KE SHEETS
     function openStudentModal() {
       document.getElementById("studentModal").classList.remove("hidden");
       const tbody = document.getElementById("studentEditTbody");
@@ -353,7 +567,6 @@
       });
     }
 
-    // 6. RENDER ID CARDS & AUDIO EFFECTS
     function renderIdCards() {
       const container = document.getElementById("printableIdCards");
       if (currentStudents.length === 0) {
@@ -454,3 +667,5 @@
       }, 3500);
     }
   </script>
+</body>
+</html>
